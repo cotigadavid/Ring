@@ -16,31 +16,35 @@ public:
 	Application();
 	~Application();
 
-	void Run();
-	void OnEvent(Event& e);
-
 	inline static Application& Get() { return *s_Instance; }
 
-	Window& GetWindow() { return *m_Window; }
+	void Run();
+
+	void OnEvent(Event& e);
+
+	void Connect(const char* ipAddress, int portNr);
 
 	void Close() { m_Running = false; }
 
+	Window& GetWindow() { return *p_Window; }
+
+	
 private:
 	bool OnWindowClosed(WindowCloseEvent& e);
 	bool OnWindowResize(WindowResizeEvent& e);
 	bool OnKeyPressed(KeyPressedEvent& e);
 
 private:
+	ImGuiLayer* p_ImguiLayer;
 	bool m_Running;
-	bool m_Minimized;
+	std::unique_ptr<Window> p_Window;
+
 	static Application* s_Instance;
-	std::unique_ptr<Window> m_Window;
-	ImGuiLayer* m_ImguiLayer;
 
 public:
 	std::shared_ptr<CustomClient> client;
+	std::string m_ClientName;
 
-public:
 	int WindowPosX, WindowPosY;
 	int WindowWidth, WindowHeight;
 };

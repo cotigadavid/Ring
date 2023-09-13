@@ -30,11 +30,11 @@ public:
 		net::message<CustomMsgTypes> msg;
 
 		msg.header.id = CustomMsgTypes::MessageAll;
-		msg << "faf";
+		msg << "DEFAULT MESSAGE ALL FUNCTION";
 
 		Send(msg);
 	}
-	void MessageAll(const char* s)
+	void MessageAll(const char* name, const char* message)
 	{
 		net::message<CustomMsgTypes> msg;
 
@@ -42,11 +42,13 @@ public:
 		
 		msg << (uint32_t)m_connection->GetID();
 		
-		std::cout << m_connection->GetID();
+		for (int i = 0; i < strlen(name); ++i)
+			msg << name[i];
+		msg << (uint32_t)strlen(name);
 
-		for (int i = 0; i < strlen(s); ++i)
-			msg << s[i];
-		msg << (uint32_t)strlen(s);
+		for (int i = 0; i < strlen(message); ++i)
+			msg << message[i];
+		msg << (uint32_t)strlen(message);
 
 		Send(msg);
 	}

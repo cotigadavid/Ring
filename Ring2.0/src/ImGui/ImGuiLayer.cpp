@@ -13,7 +13,7 @@
 
 #define BIND_EVENT_FN(x) std::bind(&ImGuiLayer::x, this, std::placeholders::_1)
 
-ImGuiLayer::ImGuiLayer()
+ImGuiLayer::ImGuiLayer() : app(Application::Get())
 {
 }
 
@@ -31,32 +31,21 @@ void ImGuiLayer::OnAttach()
 
 	ImGui::StyleColorsDark();
 
-	io.Fonts->AddFontFromFileTTF("../assets/fonts/OpenSans-Bold.ttf", 23.0f);
-	io.FontDefault = io.Fonts->AddFontFromFileTTF("../assets/fonts/OpenSans-Regular.ttf", 23.0f);
+	SetDarkThemeColors();
 
-	Application& app = Application::Get();
+	io.Fonts->AddFontFromFileTTF("../../../assets/fonts/OpenSans-Bold.ttf", 23.0f);
+	io.FontDefault = io.Fonts->AddFontFromFileTTF("../../../assets/fonts/OpenSans-Regular.ttf", 23.0f);
+
 	GLFWwindow* window = static_cast<GLFWwindow*>(app.GetWindow().GetNativeWindow());
 
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 410");
 
 	client = app.client;
-
-	Messages.push_back("fsafaf");
-	Messages.push_back("fsafaf");
-	Messages.push_back("fsafaf");
-	Messages.push_back("fsafaf");
 }
 
 void ImGuiLayer::OnEvent(Event& e)
 {
-	if (m_BlockEvents)
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		e.Handled |= e.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
-		e.Handled |= e.IsInCategory(EventCategoryKeyboard) & io.WantCaptureKeyboard;
-	}
-
 	EventDispatcher dispatcher(e);
 	dispatcher.Dispatch<KeyPressedEvent>(BIND_EVENT_FN(OnKeyPressed));
 }
@@ -79,7 +68,7 @@ void ImGuiLayer::SendOneMessage()
 {
 	if (strlen(str) != 0)
 	{
-		client->MessageAll(str);
+		client->MessageAll(name, str);
 		FlushMessage = true;
 		AddMessage(std::string("Me: ") + std::string(str));
 		scroll = true;
@@ -99,50 +88,50 @@ void ImGuiLayer::OnDetach()
 
 void ImGuiLayer::OnImGuiRender()
 {
-	Application& app = Application::Get();
 
-	ImGui::SetNextWindowPos(ImVec2(0, 0));
-	ImGui::SetNextWindowSize(ImVec2(1000, 517));
-
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{ 0.2f, 0.2f, 0.2f, 1.0f });
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-
-	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-
-	ImGui::PushStyleColor(ImGuiCol_Text, { 1.0f, 1.0f, 1.0f, 1.0f });
-
-	ImGui::Begin("Window", nullptr, window_flags);
-
-	//ImGui::InputTextWithHint("", "enter text here", str, IM_ARRAYSIZE(str));
-	TypingBar();
-
-	NextMessageY = 5;
-
-	for (unsigned int i = 0; i < Messages.size(); ++i)
-		PrintMessage(Messages[i]);
-
-	if (app.WindowWidth)
-		ImGui::SetWindowFontScale(app.WindowWidth / 800);
-
-	if (scroll)
+	if (app.WindowWidth >= 400 && app.WindowHeight >= 400)
 	{
-		ImGui::SetScrollY(NextMessageY + 10000);
-		scroll = false;
-	}
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
+		
+		ImGuiStyle& style = ImGui::GetStyle();
+		
+		style.Colors[ImGuiCol_WindowBg] = { 0.2f, 0.2f, 0.2f, 1.0f };
+		style.Colors[ImGuiCol_Text] = { 1.0f, 1.0f, 1.0f, 1.0f };
+		style.WindowBorderSize = 0.0f;
+		
+		ImGui::SetNextWindowPos(ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2(app.WindowWidth, app.WindowHeight - 50));
 
-	ImGui::End();
+		ImGui::Begin("Window", nullptr, window_flags);
 
-	ImGui::PopStyleColor(2);
-	ImGui::PopStyleVar();
+		if (!connected)
+			StartingWindow();
+		TypingBar();
+		CustomiseWindow();
 
-	if (FlushMessage)
-	{
-		str[0] = '\0';
-		setFocus = true;
+		NextMessageY = 5;
 
-		ImGui::SetKeyboardFocusHere();
+		for (unsigned int i = 0; i < Messages.size(); ++i)
+			PrintMessage(Messages[i]);
 
-		FlushMessage = false;
+		if (scroll)
+		{
+			ImGui::SetScrollY(NextMessageY + 10000);
+			scroll = false;
+		}
+
+		ImGui::End();
+
+
+		if (FlushMessage)
+		{
+			str[0] = '\0';
+			setFocus = true;
+
+			ImGui::SetKeyboardFocusHere();
+
+			FlushMessage = false;
+		}
 	}
 }
 
@@ -156,48 +145,70 @@ void ImGuiLayer::Begin()
 void ImGuiLayer::End()
 {
 	ImGuiIO& io = ImGui::GetIO();
-	Application& app = Application::Get();
 	io.DisplaySize = ImVec2((float)app.GetWindow().GetWidth(), (float)app.GetWindow().GetHeight());
 
 	// Rendering
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-	/*if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+}
+
+void ImGuiLayer::StartingWindow()
+{
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+	
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	style.Colors[ImGuiCol_WindowBg] = { 0.1f, 0.1f, 0.1f, 1.0f };
+	style.Colors[ImGuiCol_FrameBg] = { 0.4f, 0.4f, 0.4f, 1.0f };
+
+	ImGui::SetNextWindowPos(ImVec2((app.WindowWidth - 300) / 2, (app.WindowHeight - 200) / 2));
+	ImGui::SetNextWindowSize(ImVec2(300, 200));
+	ImGui::SetNextWindowFocus();
+
+
+	ImGui::Begin("Starting Window", nullptr, window_flags);
+
+	ImGui::PushItemWidth(285);
+
+	ImGui::InputTextWithHint("##label IP", "IP Adress", ipAddress, IM_ARRAYSIZE(ipAddress));
+
+	ImGui::InputInt("##label port", &portNr, NULL, NULL);
+
+	ImGui::PopItemWidth();
+
+	float size = ImGui::CalcTextSize("Connect").x + style.FramePadding.x * 2.0f;
+	float avail = ImGui::GetContentRegionAvail().x;
+	
+	float off = (avail - size) / 2;
+
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 60);
+
+	if (ImGui::Button("Connect"))
 	{
-		GLFWwindow* backup_current_context = glfwGetCurrentContext();
-		ImGui::UpdatePlatformWindows();
-		ImGui::RenderPlatformWindowsDefault();
-		glfwMakeContextCurrent(backup_current_context);
-	}*/
+		Application& app = Application::Get();
+		app.Connect(ipAddress, portNr);
+	}
+
+	ImGui::End();
 }
 
 void ImGuiLayer::TypingBar()
 {
-	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove ;
-	//window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus /*| ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar*/;
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
 
-	//ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{ 1.0f, 1.0f, 1.0f, 0.1f });
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.5f);
+	ImGuiStyle& style = ImGui::GetStyle();
 
-	Application& app = Application::Get();
+	style.Colors[ImGuiCol_WindowBg] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	style.Colors[ImGuiCol_FrameBg] = { 0.4f, 0.4f, 0.4f, 1.0f };
 
-	//ImGui::SetNextWindowPos(ImVec2(app.WindowPosX + app.WindowWidth / 3.57, app.WindowPosY + app.WindowHeight - app.WindowHeight / 13));
-	ImGui::SetNextWindowPos(ImVec2(0, 515));
-	ImGui::SetNextWindowSize(ImVec2(1000, 300));
-
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{ 0.2f, 0.2f, 0.2f, 1.0f });
-
+	ImGui::SetNextWindowPos(ImVec2(0, app.WindowHeight - 50));
+	ImGui::SetNextWindowSize(ImVec2(app.WindowWidth, app.WindowHeight * 0.53));
+	
 	ImGui::Begin("TypingBar", nullptr, window_flags);
 
-	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4{ 0.4f, 0.4f, 0.4f, 1.0f });
-	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
-	ImGui::PushItemWidth(app.WindowWidth - 100);
-
-	//ImGui::SetCursorPosY(500);
-	//ImGui::SetCursorPosX(18);
-
-	//str[0] = '\0';
+	ImGui::PushItemWidth(app.WindowWidth - 115);
 
 	if (ImGui::GetTime() > 0.1 && setFocus)
 	{
@@ -205,65 +216,56 @@ void ImGuiLayer::TypingBar()
 		ImGui::SetKeyboardFocusHere();
 	}
 
-	//if (app.WindowWidth)
-		//ImGui::SetWindowFontScale(app.WindowWidth / 800 * 1.25);
-
-	//ImGui::SetWindowFontScale(30);
-	ImGui::SetCursorPosX(5);
+	ImGui::SetCursorPosX(15);
 	
 	ImGui::InputTextWithHint("", "Message", str, IM_ARRAYSIZE(str));
 
-	ImGui::PopStyleColor();
-	ImGui::PopStyleVar();
 	ImGui::PopItemWidth();
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.4f, 0.4f, 0.4f, 1.0f });
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.5f, 0.5f, 0.5f, 1.0f });
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.6f, 0.6f, 0.6f, 1.0f });
 
 	ImGui::SameLine();
 	if (ImGui::Button("Send", ImVec2(75, 29)))
 		SendOneMessage();
 
-	ImGui::SameLine();
-
-	ImGui::PopStyleColor(3);
-
 	ImGui::End();
 
-	ImGui::PopStyleColor();
+}
 
-	//ImGui::PopStyleColor();
-	//ImGui::PopStyleVar();
+void ImGuiLayer::CustomiseWindow()
+{
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+
+	int windowHeight = app.WindowHeight * 0.44;
+	int windowWidth = 180;
+
+	ImGui::SetNextWindowPos(ImVec2(app.WindowWidth - 180 - 14, 0));
+	ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight));
+
+	ImGui::Begin("CustomizeWindow", nullptr, window_flags);
+
+	ImGui::PushItemWidth(180);
+	ImGui::InputTextWithHint("", "Type Name", name, IM_ARRAYSIZE(name));
+
+	ImGui::PopItemWidth();
+	ImGui::End();
+
 }
 
 void ImGuiLayer::PrintMessage(const std::string& message)
 {
-	Application& app = Application::Get();
-
-	if (app.WindowWidth)
-		ImGui::SetWindowFontScale(app.WindowWidth / 800);
-
-	int NextMessageX;
 	int boxWidth, boxHeight;
 
-	ImVec2 a = ImGui::CalcTextSize(message.c_str(), (const char*)0, false, 350);
+	ImVec2 a = ImGui::CalcTextSize(message.c_str(), (const char*)0, false, std::min(350, app.WindowWidth - 50));
 
 	boxWidth = a.x;
 	boxHeight = a.y;
-
-	NextMessageX = 20;
-
-	//ImGui::SetCursorPos(ImVec2(NextMessageX, NextMessageY));
-	//ImGui::Image((void*)TextBackground->GetRendererID(), ImVec2(boxWidth + 10, boxHeight + 10));
-
-	ImGui::SetCursorPos(ImVec2(NextMessageX + 5, NextMessageY + 5));
-	ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 350);
+	
+	ImGui::SetCursorPos(ImVec2(25, NextMessageY + 5));
+	ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + std::min(350, app.WindowWidth - 50));
 	ImGui::Text(message.c_str(), boxWidth);
 
 	NextMessageY += boxHeight + 5;
 
-	ImGui::SetWindowFontScale(1);
+	ImGui::PopTextWrapPos();
 }
 
 void ImGuiLayer::SetDarkThemeColors()
@@ -276,11 +278,11 @@ void ImGuiLayer::SetDarkThemeColors()
 	colors[ImGuiCol_HeaderHovered] = ImVec4{ 0.3f, 0.305f, 0.31f, 1.0f };
 	colors[ImGuiCol_HeaderActive] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
 
-	// Buttons
-	colors[ImGuiCol_Button] = ImVec4{ 0.2f, 0.205f, 0.21f, 1.0f };
-	colors[ImGuiCol_ButtonHovered] = ImVec4{ 0.3f, 0.305f, 0.31f, 1.0f };
-	colors[ImGuiCol_ButtonActive] = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
-
+	//Buttons
+	colors[ImGuiCol_Button] = ImVec4{ 0.4f, 0.4f, 0.4f, 1.0f };
+	colors[ImGuiCol_ButtonHovered] = ImVec4{ 0.5f, 0.5f, 0.5f, 1.0f };
+	colors[ImGuiCol_ButtonActive] = ImVec4{ 0.6f, 0.6f, 0.6f, 1.0f };
+	
 	// Frame BG
 	colors[ImGuiCol_FrameBg] = ImVec4{ 0.2f, 0.205f, 0.21f, 1.0f };
 	colors[ImGuiCol_FrameBgHovered] = ImVec4{ 0.3f, 0.305f, 0.31f, 1.0f };

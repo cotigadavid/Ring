@@ -42,7 +42,7 @@ void Window::Init(const WindowProps& props)
 	m_Data.Height = props.Height;
 	m_Data.Title = props.Title;
 
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 	m_Window = glfwCreateWindow((int)m_Data.Width, (int)m_Data.Height, m_Data.Title.c_str(), nullptr, nullptr);
 	int xpos, ypos;
@@ -52,7 +52,6 @@ void Window::Init(const WindowProps& props)
 	m_Context->Init();
 
 	glfwSetWindowUserPointer(m_Window, &m_Data);
-	//SetVSync(true);
 
 	glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height)
 		{

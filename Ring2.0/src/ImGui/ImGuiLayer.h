@@ -8,6 +8,8 @@
 
 #include "Network/CustomClient.h"
 
+class Application;
+
 class ImGuiLayer
 {
 public:
@@ -25,30 +27,36 @@ public:
 	void Begin();
 	void End();
 
-	//static float CursorCenteredHorizontally(int size);
-	//static float CursorCenteredVertically(int size);
-
 	void AddMessage(std::string message);
 
 	void SendOneMessage();
 
+	void StartingWindow();
 	void TypingBar();
+	void CustomiseWindow();
 
 	void PrintMessage(const std::string& message);
-
-	void BlockEvents(bool block) { m_BlockEvents = block; }
 
 	void SetDarkThemeColors();
 
 private:
-	int NextMessageY = 5;
+	Application& app;
+
 	std::vector<std::string> Messages;
-	bool m_BlockEvents = true;
-	float m_Time = 0.0f;
-	char str[100] = "";
+	
+	int NextMessageY = 5;
+	char str[1000] = "";
+	char name[100] = "Default Name";
+
 	bool setFocus = true;
 	bool FlushMessage = false;
 	bool scroll = false;
-
+	
 	std::shared_ptr<CustomClient> client;
+
+	char ipAddress[15] = "127.0.0.1";
+	int portNr = 60000;
+
+public:
+	bool connected = false;
 };

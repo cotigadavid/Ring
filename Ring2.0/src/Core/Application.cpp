@@ -15,18 +15,17 @@ Application::Application()
 	s_Instance = this;
 
 	m_Running = true;
-	m_Minimized = false;
-	m_Window = std::unique_ptr<Window>(Window::Create());
-	m_Window->SetEventCallback(BIND_EVENT_FN(OnEvent));
+	p_Window = std::unique_ptr<Window>(Window::Create());
+	p_Window->SetEventCallback(BIND_EVENT_FN(OnEvent));
 
 	client = std::make_shared<CustomClient>();
-	client->Connect("127.0.0.1", 60000);
+	m_ClientName = "DefaultName";
 
-	m_ImguiLayer = new ImGuiLayer();
-	m_ImguiLayer->OnAttach();
+	p_ImguiLayer = new ImGuiLayer();
+	p_ImguiLayer->OnAttach();
 
 }
-bool once = true;
+
 void Application::Run()
 {
 	while (m_Running)
@@ -34,8 +33,10 @@ void Application::Run()
 		glfwGetWindowPos(Application::Get().GetWindow().GetNativeWindow(), &WindowPosX, &WindowPosY);
 		glfwGetWindowSize(Application::Get().GetWindow().GetNativeWindow(), &WindowWidth, &WindowHeight);
 
-		if (client->IsConnected())
+ 		if (client->IsConnected())
 		{
+			p_ImguiLayer->connected = true;
+
 			if (!client->Incoming().empty())
 			{
 				auto msg = client->Incoming().pop_front().msg;
@@ -56,26 +57,38 @@ void Application::Run()
 				case CustomMsgTypes::ServerMessage:
 				{
 					uint32_t clientID;
-					uint32_t sizeofsentence;
-					uint8_t a;
+					uint32_t sizeOfSentence;
+					uint32_t sizeOfName;
+					uint8_t indChar;
 
-					std::string s;
+					std::string receivedMessage;
+					std::string receivedName;
 
-					msg >> sizeofsentence;
+					msg >> sizeOfSentence;
 					
-					while (sizeofsentence)
+					while (sizeOfSentence)
 					{
-						sizeofsentence--;
-						msg >> a;
-						s += a;
+						sizeOfSentence--;
+						msg >> indChar;
+						receivedMessage += indChar;
 					}
 					
-					std::reverse(s.begin(), s.end());
+					msg >> sizeOfName;
+
+					while (sizeOfName)
+					{
+						sizeOfName--;
+						msg >> indChar;
+						receivedName += indChar;
+					}
+
+					std::reverse(receivedMessage.begin(), receivedMessage.end());
+					std::reverse(receivedName.begin(), receivedName.end());
 
 					msg >> clientID;
-					std::cout << s << " from [" << clientID << "]\n";
-					m_ImguiLayer->AddMessage("anoth: " + s);
-					//std::cout << a << " from [" << clientID << "]\n";
+					std::cout << receivedMessage << " from [" << receivedName << "]\n";
+					p_ImguiLayer->AddMessage(receivedName + ": " + receivedMessage);
+					
 				}
 				break;
 				
@@ -87,11 +100,11 @@ void Application::Run()
 			std::cout << "Server Down\n";
 		}
 
-		m_ImguiLayer->Begin();
-		m_ImguiLayer->OnImGuiRender();
-		m_ImguiLayer->End();
+		p_ImguiLayer->Begin();
+		p_ImguiLayer->OnImGuiRender();
+		p_ImguiLayer->End();
 
-		m_Window->OnUpdate();
+		p_Window->OnUpdate();
 
 		glClear(GL_COLOR_BUFFER_BIT);
 	}
@@ -102,6 +115,7 @@ void Application::OnEvent(Event& e)
 	EventDispatcher dispatcher(e);
 	dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(OnWindowClosed));
 	dispatcher.Dispatch<KeyPressedEvent>(BIND_EVENT_FN(OnKeyPressed));
+	dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(OnWindowResize));
 
 }
 
@@ -109,11 +123,14 @@ bool Application::OnKeyPressed(KeyPressedEvent& e)
 {
 	if (e.GetKeyCode() == Key::Enter)
 	{
-		//client->MessageAll();
-		m_ImguiLayer->OnKeyPressed(e);
-		
+		p_ImguiLayer->OnKeyPressed(e);
 	}
 	return true;
+}
+
+void Application::Connect(const char* ipAddress, int portNr)
+{
+	client->Connect(ipAddress, portNr);
 }
 
 bool Application::OnWindowClosed(WindowCloseEvent& e)
@@ -126,20 +143,14 @@ bool Application::OnWindowResize(WindowResizeEvent& e)
 {
 	if (e.GetWidth() == 0 || e.GetHeight() == 0)
 	{
-		m_Minimized = true;
-		RING_ERROR("Minimized");
+		RING_TRACE("Minimized");
 		return false;
 	}
-
-	m_Minimized = false;
 
 	float width = (float)e.GetWidth();
 	float height = (float)e.GetHeight();
 
-	/*glViewport(0, 0, width, height);
-
-	float aspectRatio = width / height;
-	m_ProjectionData.SetProjection(-10.0f * aspectRatio, 10.0f * aspectRatio, -10.0f, 10.0f);*/
+	glViewport(0, 0, width, height);
 
 	return false;
 }
